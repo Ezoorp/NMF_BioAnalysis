@@ -2,11 +2,15 @@
 suppressPackageStartupMessages(library(Seurat))
 suppressPackageStartupMessages(library(Hmisc))
 suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(ComplexHeatmap))
+suppressPackageStartupMessages(library(circlize))
+suppressPackageStartupMessages(library(Rcpp))
 setwd("/Users/levyez/Documents/Professional_Code/NMF_BioAnalysis/")
 
 source('00_Viz_lib.R')
 source('00_Formatting_lib.R')
 source('00_NMF_lib.R')
+sourceCpp('00_NMF_fast_lib.cpp')
 
 output_dir = "Outputs/"
 dir.create(output_dir, showWarnings = "FALSE")
@@ -73,19 +77,14 @@ malig_bool <- FALSE
 rank_test <- 2:4 # K equal to 2 to 11
 # 3. Set # of genes to represent each component
 max_program_genes <- 50
-# 4. Set cutoff for intrasample similarity, intrasample redundancy, and intersample similarity:
-intrasample_similarity_cutoff <- 0.6
-intrasample_redundancy_cutoff <- 0.2
 
-# TO GO IN FUNCTION:
-# Setup:
+# File Naming:
 nmf_name <- sprintf('k%d_%d.hvg%d', 
                     min(rank_test), max(rank_test), hvg_features, malig_bool)
 
 path.nmf.folder <- paste0(output_dir, "NMF_",nmf_name)
 if (!dir.exists(path.nmf.folder))
   dir.create(path.nmf.folder)
-
 
 path.nmf.file <- file.path(path.nmf.folder, paste0('NMF_raw_output_', nmf_name, '.rds'))
 ###############
@@ -119,6 +118,10 @@ saveRDS(nmf.genes, file = path.nmf.genes.file)
 
 ###############
 ## Filter NMF components (may be called programs in some cases)
+# Set cutoff for intrasample similarity, intrasample redundancy, and intersample similarity:
+intrasample_similarity_cutoff <- 0.6
+intrasample_redundancy_cutoff <- 0.2
+
 nprogs <- length(nmf.genes)
 message("Total # of initial Programs: ", nprogs)
 
@@ -126,48 +129,20 @@ message("Total # of initial Programs: ", nprogs)
 min_intra_sim_robust <- max_program_genes * intrasample_similarity_cutoff
 max_intra_sim_redundant <- max_program_genes * intrasample_redundancy_cutoff
 
-J <- matrix(data=0, ncol=length(nmf.genes),
-            nrow = length(nmf.genes))
+# Create J matrix (Intersection Matrix)
+J <- calculateOverlap(nmf.genes)
 
-# Running CPP Jaccard Index
-st.time <- Sys.time()
-J <- calculateJaccardIndexOptimized(nmf.genes)
-message('Calculating Jaccard Index with CPP:')
-print(Sys.time() - st.time)
-
-# Label J matrix
-colnames(J) <- names(nmf.genes)
-rownames(J) <- names(nmf.genes)
+# Heatmap of Initial J matrix:
+plotIntersectionMatrix(J, output_file = TRUE, path.nmf.folder, nmf_name)
 
 # 1. filter programs that are similar intrasamplewise
 robust.intra.progs <- filterIntraSimilarProgs(
   Jmatrix = J,
   nmf.genes = nmf.genes, 
   ranks = rank_test, 
-  sample_names = sample_names, 
+  sample_names = names(seurat_objs_list), 
   min_intra_sim_robust = min_intra_sim_robust
 )
-filtered_program <- robust.intra.progs
-
-##############################
-
-# TODO: WHY ARE WE RECALCULATING J ??????
-J <- matrix(data=0, ncol=length(filtered_program),
-            nrow = length(filtered_program))
-
-# Subsetting J to filtered programs:
-names_to_subset <- unique(unlist(filtered_program))
-subset_nmf_genes <- nmf.genes[names_to_subset]
-
-# Running CPP Jaccard Index
-st.time <- Sys.time()
-J <- calculateJaccardIndexOptimized(subset_nmf_genes)
-message('Calculating Jaccard Index with CPP:')
-print(Sys.time() - st.time)
-
-# Label J matrix
-colnames(J) <- filtered_program
-rownames(J) <- filtered_program
 
 ############################
 # 2. filtering across samples to remove non-robust program 

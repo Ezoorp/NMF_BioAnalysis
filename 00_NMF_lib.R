@@ -1,3 +1,6 @@
+
+
+
 #' Run NMF on a list of Seurat objects
 #'
 #' Given a list of Seurat objects, run non-negative matrix factorization on 
@@ -98,7 +101,6 @@ plot_nmf_tolerances <- function(geneNMF.programs, path.nmf.folder, nmf_name) {
 #'     by \code{multiNMF()}
 #' @importFrom NMF extractFeatures
 getNMFgenes <- function(nmf.res, method=0.5, max.genes=200) {
-  
   nmf.genes <- lapply(nmf.res, function(model) {
     
     emb <- model$h
@@ -120,8 +122,33 @@ getNMFgenes <- function(nmf.res, method=0.5, max.genes=200) {
 
 
 
+# ' Calculate J matrix (intersection matrix) for NMF genes
+#' @param nmf.genes A list of NMF genes
+#' @return A matrix representing the intersection of NMF genes
+#' @import RCPP and calculateOverlapOptimized
+calculateOverlap <- function(nmf.genes) {
+  J <- matrix(data=0, ncol=length(nmf.genes),
+              nrow = length(nmf.genes))
 
-#########
+  # Running CPP J (Intersection) Matrix
+  st.time <- Sys.time()
+  J <- calculateOverlapOptimized(nmf.genes)
+  message('Calculating Intersection Matrix with CPP:')
+  print(Sys.time() - st.time)
+
+  # Label J matrix
+  colnames(J) <- names(nmf.genes)
+  rownames(J) <- names(nmf.genes)
+}
+
+#' Filter NMF programs based on intra-sample similarity
+#' @param Jmatrix The J matrix (intersection matrix) calculated from the NMF genes
+#' @param nmf.genes The list of NMF genes
+#' @param ranks The ranks of the NMF genes
+#' @param sample_names The names of the samples
+#' @param min_intra_sim_robust The minimum intra-sample similarity threshold
+#' @param verbose Whether to print verbose output
+#' @return A vector of filtered program names
 filterIntraSimilarProgs <- function(
     Jmatrix, nmf.genes, ranks, sample_names, min_intra_sim_robust, verbose=FALSE
 ){
@@ -152,4 +179,28 @@ filterIntraSimilarProgs <- function(
   print(Sys.time() - st.time)
   message("Total # of intra_similar filtered Programs: ", length(filtered_program))
   filtered_program
+}
+
+
+# Plot Heatmap of Initial J matrix:
+plotIntersectionMatrix <- function(J, output_file = TRUE, path.nmf.folder, nmf_name) {
+  if (output_file) {
+    path.intersectionmatrix.heatmap <- paste0(path.nmf.folder, '/NMF_interesection_',nmf_name,'.png')
+    png(path.intersectionmatrix.heatmap, 
+      width=8.5,
+      height=8,
+      units="in",
+      res=1200)
+  }
+  col_fun = colorRamp2(c(0, 25, 50), c("blue", "white", "red"))
+  Heatmap(J, col = col_fun,
+          heatmap_legend_param = list(
+            title = "Intersection", at = c(0, 25, 50), 
+            labels = c("0", "25", "50")
+          )
+          )
+  if (output_file) { 
+    dev.off()
+    message(sprintf("Intersection matrix heatmap saved to: %s", path.intersectionmatrix.heatmap))
+  }
 }
