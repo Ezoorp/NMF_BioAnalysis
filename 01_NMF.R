@@ -2,14 +2,14 @@
 suppressPackageStartupMessages(library(Seurat))
 suppressPackageStartupMessages(library(Hmisc))
 suppressPackageStartupMessages(library(tidyverse))
-setwd("/Users/levyez/Documents/Professional_Code/")
+setwd("/Users/levyez/Documents/Professional_Code/NMF_BioAnalysis/")
 
 source('00_Viz_lib.R')
 source('00_Formatting_lib.R')
 source('00_NMF_lib.R')
 
 output_dir = "Outputs/"
-dir.create(output_dir)
+dir.create(output_dir, showWarnings = "FALSE")
 
 ##########################################
 ## Load in Raw Counts Data from directory:
@@ -76,8 +76,6 @@ max_program_genes <- 50
 # 4. Set cutoff for intrasample similarity, intrasample redundancy, and intersample similarity:
 intrasample_similarity_cutoff <- 0.6
 intrasample_redundancy_cutoff <- 0.2
-intersample_redundancy_cutoff <- 0.2
-
 
 # TO GO IN FUNCTION:
 # Setup:
