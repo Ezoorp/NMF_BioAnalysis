@@ -89,17 +89,17 @@ if (!dir.exists(path.nmf.folder))
 path.nmf.file <- file.path(path.nmf.folder, paste0('NMF_raw_output_', nmf_name, '.rds'))
 ###############
 # RUN NMF ALGORITHM:
-st.time <- Sys.time()
 if (!file.exists(path.nmf.file)){
   geneNMF.programs <- multiSampleNMF(
-    seurat_objs_list, k = rank_test, nfeatures = hvg_features)
+    seurat_objs_list, 
+    k = rank_test, 
+    nfeatures = hvg_features)
   
   saveRDS(geneNMF.programs, file = path.nmf.file)
 } else {
   geneNMF.programs <- readRDS(file = path.nmf.file)
 }
-message('Calculating NMF time:')
-print(Sys.time() - st.time)
+
 
 #View(geneNMF.programs)
 
@@ -144,7 +144,6 @@ robust.intra.progs <- filterIntraSimilarProgs(
   min_intra_sim_robust = min_intra_sim_robust
 )
 
-############################
 # 2. filtering across samples to remove non-robust program 
 
 # TODO: WHY IS THIS BEFORE INTRASAMPLE?>???

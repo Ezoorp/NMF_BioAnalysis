@@ -35,9 +35,10 @@ multiSampleNMF <- function(obj.list, assay="RNA", slot="data", k=5:6,
                            seed = 1234
                            ) {
   
-    #set.seed(seed)
-  
-    nmf.res <- lapply(obj.list, function(obj){
+  #set.seed(seed)
+  st.time <- Sys.time()
+
+  nmf.res <- lapply(obj.list, function(obj){
     message(sprintf('Calculating NMF of sample %s, total %d ...', 
                     obj$sample_source[[1]], length(obj.list)))
     mat <- as.matrix(GetAssayData(subset(obj,features = VariableFeatures(obj)), assay="RNA"))
@@ -60,6 +61,9 @@ multiSampleNMF <- function(obj.list, assay="RNA", slot="data", k=5:6,
   })
   nmf.res <- unlist(nmf.res, recursive = FALSE)
   
+  message('Calculating NMF time:')
+  print(Sys.time() - st.time)
+
   return(nmf.res)
 }  
 
