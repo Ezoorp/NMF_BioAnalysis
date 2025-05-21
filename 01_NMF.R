@@ -17,8 +17,10 @@ dir.create(output_dir, showWarnings = "FALSE")
 
 ##########################################
 ## Load in Raw Counts Data from directory:
-# By hand:
-folder <- "Wu_2022_Liver"
+# By hand on laptop:
+#folder <- "Wu_2022_Liver"
+# By hand on HPC:
+folder <- "/data/CDSL_MAlab/levyez/00_cell_states/Visium_test_data/Wu_2022_Liver"
 # With Bash + HPC Script:
 #args <- commandArgs(trailingOnly = TRUE)
 #folder=args[1]
