@@ -121,19 +121,21 @@ saveRDS(nmf.genes, file = path.nmf.genes.file)
 # Set cutoff for intrasample similarity, intrasample redundancy, and intersample similarity:
 intrasample_similarity_cutoff <- 0.6
 intrasample_redundancy_cutoff <- 0.2
-
+intersample_similarity_cutoff <- 0.2
 nprogs <- length(nmf.genes)
 message("Total # of initial Programs: ", nprogs)
 
 # calculate the similarities within each samples and do filtering
 min_intra_sim_robust <- max_program_genes * intrasample_similarity_cutoff
 max_intra_sim_redundant <- max_program_genes * intrasample_redundancy_cutoff
+min_inter_sim_robust <- max_program_genes * intersample_similarity_cutoff
 
 # Create J matrix (Intersection Matrix)
 J <- calculateOverlap(nmf.genes)
 
 # Heatmap of Initial J matrix:
-plotIntersectionMatrix(J, output_file = TRUE, path.nmf.folder, nmf_name)
+path.intersectionmatrix.heatmap <- paste0(path.nmf.folder, '/NMF_interesection_',nmf_name,'.png')
+plotIntersectionMatrix(J, output_file = TRUE, path.intersectionmatrix.heatmap)
 
 # 1. filter programs that are similar intrasamplewise
 robust.intra.progs <- filterIntraSimilarProgs(
@@ -144,14 +146,64 @@ robust.intra.progs <- filterIntraSimilarProgs(
   min_intra_sim_robust = min_intra_sim_robust
 )
 
-# 2. filtering across samples to remove non-robust program 
+# DEBUG: Programs Per Sample:
+# table(gsub('.k\\d+\\.p\\d+', '', robust.intra.progs))
 
-# TODO: WHY IS THIS BEFORE INTRASAMPLE?>???
 
+# SAVE Filtered NMF Components
+path.nmf.filtered.genes.file <- paste0(path.nmf.folder, '/Filtered_NMF_components_', nmf_name, '.rds')
+saveRDS(robust.intra.progs, file = path.nmf.filtered.genes.file)
 
-# TODO: SAVE TO FILE THE FILTERED NMF OUTPUTS!!!
-
+############################
 # NEXT STEPS: Run the Inter Sample Similarity + Clustering accross all dataset
 
 ## OR: Run Inter Sample Similarity for THIS dataset -> clustering + analysis
 ############################
+
+# 2. filtering across samples to remove non-robust program 
+# Constrain J matrix to just remaining programs:
+J_filtered <- J[robust.intra.progs,robust.intra.progs]
+
+# TODO: rewrite code with lapply / avoid For loops
+robust.inter.progs.intersection <- filterInterSimilarProgs(
+  Jmatrix = J_filtered,
+  robust.intra.progs = robust.intra.progs, 
+  min_inter_sim_robust = min_inter_sim_robust
+)
+robust.inter.progs <- names(robust.inter.progs.intersection)
+
+# 3. remove redundant programs within each sample
+# Constrain J matrix to just remaining programs:
+J_filtered <- J_filtered[robust.inter.progs,robust.inter.progs]
+
+redunt_progs <- c()
+keep_progs <- c()
+
+for (i in seq_along(robust.inter.progs.intersection)){
+  cur_prog <- names(robust.inter.progs.intersection)[i]
+  if (cur_prog %in% redunt_progs) 
+    next
+  keep_progs <- c(keep_progs, cur_prog)
+  sample_i <- gsub('.k\\d+\\.p\\d+', '', cur_prog)
+  if (i >= length(robust.inter.progs.intersection)) next
+  for (j in (i + 1) : length(robust.inter.progs.intersection)){
+    tmp_prog <- names(robust.inter.progs.intersection)[j]
+    if (tmp_prog %in% redunt_progs) next
+    sample_j <- gsub('.k\\d+\\.p\\d+', '', tmp_prog)
+    if (sample_i == sample_j){
+      if (J[cur_prog, tmp_prog] > max_intra_sim_redundant)
+        redunt_progs <- c(redunt_progs, tmp_prog)
+    }
+  }
+}
+
+
+
+###########################
+# Vizualizing Programs after ALL Filtering:
+# Constrain J matrix to just remaining programs:
+J_filtered <- J_filtered[keep_progs,keep_progs]
+
+path.filtered.intersectionmatrix.heatmap <- paste0(path.nmf.folder, '/NMF_filtered_interesection_',nmf_name,'.png')
+plotIntersectionMatrix(J_filtered, output_file = TRUE, path.filtered.intersectionmatrix.heatmap)
+

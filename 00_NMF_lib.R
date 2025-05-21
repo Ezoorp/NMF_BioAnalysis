@@ -1,6 +1,3 @@
-
-
-
 #' Run NMF on a list of Seurat objects
 #'
 #' Given a list of Seurat objects, run non-negative matrix factorization on 
@@ -143,6 +140,8 @@ calculateOverlap <- function(nmf.genes) {
   # Label J matrix
   colnames(J) <- names(nmf.genes)
   rownames(J) <- names(nmf.genes)
+
+  return(J)
 }
 
 #' Filter NMF programs based on intra-sample similarity
@@ -186,10 +185,43 @@ filterIntraSimilarProgs <- function(
 }
 
 
+#' Filter NMF programs based on ibter-sample similarity
+#' @param Jmatrix The FILTERED J matrix (intersection matrix) calculated from the genes of robust intrasample NMF components
+#' @param robust.intra.progs The list of robust intra-sample NMF genes
+#' @param min_inter_sim_robust The minimum inter-sample similarity threshold
+#' @return A vector of filtered program names sorted by max intersection with other programs
+#' TODO: rewrite code with lapply / avoid For loops
+filterInterSimilarProgs <- function(Jmatrix, robust.intra.progs, min_inter_sim_robust) {
+  robust.inter.progs <- c()
+  robust.inter.progs.intersection <- c()
+  st.time <- Sys.time()
+  for (i in robust.intra.progs){
+    sample_i <- gsub('.k\\d+\\.p\\d+', '', i)
+    maxInterSim <- 0
+    for (j in robust.intra.progs){
+      if (i == j) next
+      sample_j <- gsub('.k\\d+\\.p\\d+', '', j)
+      if (sample_i == sample_j) next
+      maxInterSim <- max(maxInterSim, J[i,j])
+    }
+    if (maxInterSim >= min_inter_sim_robust) {
+      robust.inter.progs <- c(robust.inter.progs, i)
+      robust.inter.progs.intersection <- c(robust.inter.progs.intersection, maxInterSim)
+    }
+  }
+  names(robust.inter.progs.intersection) <- robust.inter.progs
+  robust.inter.progs.intersection <- sort(robust.inter.progs.intersection, decreasing = TRUE)
+
+  message('Calculating and filtering inter-Similarities...')
+  print(Sys.time() - st.time)
+  message('Robust intersample programs sorted by max intersection with other programs')
+  print(robust.inter.progs.intersection)
+}
+
+
 # Plot Heatmap of Initial J matrix:
-plotIntersectionMatrix <- function(J, output_file = TRUE, path.nmf.folder, nmf_name) {
+plotIntersectionMatrix <- function(J, output_file = TRUE, path.intersectionmatrix.heatmap) {
   if (output_file) {
-    path.intersectionmatrix.heatmap <- paste0(path.nmf.folder, '/NMF_interesection_',nmf_name,'.png')
     png(path.intersectionmatrix.heatmap, 
       width=8.5,
       height=8,

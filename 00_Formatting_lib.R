@@ -4,9 +4,7 @@
 #' @note the raw counts are usually NOT in tsv file. 
 # We have already converted them in a previous script.
 load_and_make_seurat_obj <- function(folder) {
-  # TEST ME NEED ME: setwd("/Users/levyez/Documents/Professional_Code/")???
-  
-  # Format into Seurat Obj:
+  # List every counts file in the dataset's folder
   dataset = list.files(folder);
 
   if ((!dir.exists(folder)) || (length(dataset[1]) == 0)) {
